@@ -2,6 +2,9 @@
 
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
+use bevy::app::Events;
+use bevy::core::FixedTimestep;
+use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use crate::SystemLabels::{CalcDie, CalcLive};
 
@@ -34,7 +37,8 @@ struct SpawnEvent(Vec2);
 enum SystemLabels {
     CalcLive,
     CalcDie,
-    Tick
+    Tick,
+    Manage
 }
 
 
@@ -47,19 +51,27 @@ fn main() {
             height: 600.,
             ..Default::default()
         })
+        .init_resource::<Events<SpawnEvent>>()
         .add_plugins(DefaultPlugins)
+        //.add_plugin(LogDiagnosticsPlugin::default())
+        //.add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_startup_system(setup.system())
         .add_startup_stage("spawn_board", SystemStage::single(spawn_board.system()))
-        .add_system(check_die.system().label(SystemLabels::CalcDie))
-        .add_system(check_spawn.system().label(SystemLabels::CalcLive))
-        .add_system(tick_sim.system().label(SystemLabels::Tick).after(SystemLabels::CalcLive).after(SystemLabels::CalcDie))
+        .add_system_set(
+            SystemSet::new()
+                .with_run_criteria(FixedTimestep::step(0.5))
+                .with_system(check_die.system().label(SystemLabels::CalcDie))
+                .with_system(check_spawn.system().label(SystemLabels::CalcLive))
+                .with_system(tick_sim.system().label(SystemLabels::Tick).after(SystemLabels::CalcLive).after(SystemLabels::CalcDie).before(SystemLabels::Manage))
+                .with_system(my_event_manager.system().label(SystemLabels::Manage).after(SystemLabels::Tick))
+        )
         .add_system_set_to_stage(
             CoreStage::PostUpdate,
             SystemSet::new()
+                //.with_run_criteria(FixedTimestep::step(0.4))
                 .with_system(grid_to_screen_size.system())
                 .with_system(grid_to_screen_pos.system()),
         )
-        .add_event::<SpawnEvent>()
         .run();
 }
 
@@ -84,7 +96,13 @@ fn spawn_board(
 {
     //Default Living Cells:
     //Horizontal line 3-wide
+    
+    //Min Stable:
     let default_mat= vec![(-1,0), (0,0), (1,0)];
+    
+    //Glider:
+    //let default_mat = vec![(1,0), (0,1), (0,2), (1,2), (2,2)];
+    
     for item in default_mat {
         commands
             .spawn_bundle(SpriteBundle {
@@ -123,7 +141,7 @@ fn check_die(
         } else {
             "die"
         };
-        println!("The cell at {0},{1} will {2}.", cell_pos.x, cell_pos.y, live);
+        //println!("The cell at {0},{1} will {2}.", cell_pos.x, cell_pos.y, live);
     }
     
 }
@@ -134,13 +152,14 @@ fn check_spawn(
     mut writer: EventWriter<SpawnEvent>
 )
 {
+    //println!("SPAWN CHECK RUNNING");
     for cell in q.iter() {
         let neighbors = get_neighboring_cells(&cell.pos);
         for n in neighbors {
-            println!("Checking the cell at {0},{1} for spawn criteria.", n.x, n.y);
+            //println!("Checking the cell at {0},{1} for spawn criteria.", n.x, n.y);
             if get_living_neighbor_count(&n, &cell_list.0) == 3 {
                 writer.send(SpawnEvent(n));
-                println!("A new cell should spawn at {0}, {1}.", n.x, n.y);
+                //println!("A new cell should spawn at {0}, {1}.", n.x, n.y);
             }
         }
     }
@@ -154,7 +173,14 @@ fn tick_sim(
     mut global_list: ResMut<GlobalCellList>
 )
 {
+    // println!("Global list at beginning of Tick:");
+    // for item in &global_list.0 {
+    //     print!("{} ", item);
+    // }
+    // println!();
+    
     for ev in spawn_reader.iter() {
+        //println!("SHOULD SPAWN {0}", ev.0);
         if !global_list.0.contains(&ev.0) {
             commands
                 .spawn_bundle(SpriteBundle {
@@ -241,4 +267,16 @@ fn grid_to_screen_pos(
             0.0,
         );
     }
+}
+
+fn my_event_manager(
+    mut e: ResMut<Events<SpawnEvent>>
+)
+{
+    e.update();
+    // println!("Clearing Events");
+    // for e in e.drain() {
+    //     println!("Drained: {0}", e.0);
+    // }
+    // e.clear();
 }
