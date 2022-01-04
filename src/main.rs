@@ -15,7 +15,9 @@ const GRID_VISIBLE_HEIGHT: u32 = 30;
 struct Materials {
     living: Handle<ColorMaterial>,
     dead: Handle<ColorMaterial>,
-    axis: Handle<ColorMaterial>
+    axis: Handle<ColorMaterial>,
+    button: Handle<ColorMaterial>,
+    button_text: Handle<ColorMaterial>
 }
 
 struct ViewOffset(Vec2);
@@ -52,27 +54,57 @@ fn main() {
                 .with_run_criteria(FixedTimestep::step(0.02))
                 .with_system(update_offset.system())
         )
+        .add_system(update_text.system())
         .run();
 }
 
 fn setup(
     mut commands: Commands,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    windows: Res<Windows>
+    windows: Res<Windows>,
+    asset_server: ResMut<AssetServer>
 )
 {
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
-    commands.insert_resource(Materials {
+    let mats = Materials {
         living: materials.add(Color::rgb(0.7, 0.7, 0.7).into()),
         dead: materials.add(Color::rgb(0.3, 0.3, 0.3).into()),
-        axis: materials.add(Color::rgba(1.,0.,0., 1.).into())
-    });
+        axis: materials.add(Color::rgba(1., 0., 0., 1.).into()),
+        button: materials.add(Color::rgb(0.2, 0.2, 0.2).into()),
+        button_text: materials.add(Color::rgb(0.9, 0.9, 0.9).into())
+    };
+    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    commands.insert_resource(mats);
+    
+    let window = windows.get_primary().unwrap();
+    
+    
+    // commands.spawn_bundle(SpriteBundle {
+    //     material: materials.add(Color::rgb(0.2,0.2,0.2).into()),
+    //     sprite: Sprite::new(size),
+    //     transform: Transform::from_xyz((-window.width() + size.x) / 2., (-window.height() + size.y) / 2., 1.),
+    //     ..Default::default()
+    // })
+    //     .with_children(|parent| {
+    //         parent.spawn_bundle(TextBundle {
+    //             text: Text::with_section(
+    //                 "Button",
+    //                 TextStyle {
+    //                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+    //                     font_size: 8.,
+    //                     color: Color::rgb(0.9,0.9,0.9),
+    //                 },
+    //                 Default::default(),
+    //             ),
+    //             ..Default::default()
+    //         });
+    //     });
 }
 
 fn draw_axis(
     mut commands: Commands,
     windows: Res<Windows>,
-    mut materials: ResMut<Materials>
+    mut materials: ResMut<Materials>,
+    asset_server: ResMut<AssetServer>
 )
 {
     let window = windows.get_primary().unwrap();
@@ -90,6 +122,40 @@ fn draw_axis(
         transform: Transform::from_xyz(0.,0.,0.),
         ..Default::default()
     });
+    
+    commands.spawn_bundle(UiCameraBundle::default());
+    
+    let size = Vec2::new(100., 35.);
+    commands
+        .spawn_bundle(ButtonBundle {
+            style: Style {
+                size: Size::new(Val::Px(size.x), Val::Px(size.y)),
+                //margin: Rect::all(Val::Auto),
+                margin: Rect::all(Val::Px(5.)),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..Default::default()
+            },
+            material: materials.button.clone(),
+            //transform: Transform::from_xyz((-window.width() + size.x) / 2., (-window.height() + size.y) / 2., 1.),
+            transform: Transform::from_xyz(40.,63.,1.),
+            visible: Visible::default(),
+            ..Default::default()
+        })
+        .with_children(|parent| {
+            parent.spawn_bundle(TextBundle {
+                text: Text::with_section(
+                    "Button",
+                    TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 20.,
+                        color: Color::rgb(0.9, 0.9, 0.9),
+                    },
+                    Default::default(),
+                ),
+                ..Default::default()
+            });
+        });
 }
 
 fn update_offset(
@@ -107,6 +173,16 @@ fn update_offset(
     }
     if kb_input.pressed(KeyCode::D) {
         offset.0.x += 1.;
+    }
+}
+
+fn update_text(
+    offset: Res<ViewOffset>,
+    mut text: Query<&mut Text>,
+)
+{
+    for mut text in text.iter_mut() {
+        text.sections[0].value = (offset.0).to_string();
     }
 }
 
