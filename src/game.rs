@@ -12,7 +12,7 @@ impl Plugin for GamePlugin {
             .add_startup_stage("spawn_board", SystemStage::single(spawn_board.system()))
             .add_system_set(
                 SystemSet::new()
-                    .with_run_criteria(FixedTimestep::step(0.5))
+                    .with_run_criteria(FixedTimestep::step(0.05))
                     .with_system(check_die
                         .system()
                         .label(SystemLabels::CalcDie))
@@ -69,15 +69,16 @@ fn spawn_board(
     //Horizontal line 3-wide
     
     //Min Stable:
-    let default_mat= vec![(-1,0), (0,0), (1,0)];
+    //let default_mat= vec![(-1,0), (0,0), (1,0)];
     
     //Glider:
-    //let default_mat = vec![(1,0), (0,1), (0,2), (1,2), (2,2)];
+    let default_mat = vec![(1,0), (0,1), (0,2), (1,2), (2,2)];
     
     for item in default_mat {
         commands
             .spawn_bundle(SpriteBundle {
                 material: materials.living.clone(),
+                transform: Transform::from_xyz(0.,0.,0.5),
                 ..Default::default()
             })
             .insert(LivingCell {
