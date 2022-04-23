@@ -5,6 +5,9 @@ use crate::{Materials, SizeScale};
 
 pub struct GamePlugin;
 
+const TPS: f32 = 20.;
+const TPS_STEP: f32 = 1. / TPS;
+
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut AppBuilder) {
         app
@@ -12,7 +15,7 @@ impl Plugin for GamePlugin {
             .add_startup_stage("spawn_board", SystemStage::single(spawn_board.system()))
             .add_system_set(
                 SystemSet::new()
-                    .with_run_criteria(FixedTimestep::step(0.05))
+                    .with_run_criteria(FixedTimestep::step(TPS_STEP as f64))
                     .with_system(check_die
                         .system()
                         .label(SystemLabels::CalcDie))
@@ -196,9 +199,9 @@ fn get_living_neighbor_count(&pos: &Vec2, cells: &Vec<Vec2>) -> i32 {
 fn get_neighboring_cells(&pos: &Vec2) -> Vec<Vec2> {
     let mut neighbors_vec = Vec::default();
     let neighbors = vec![
-        (-1, 1), (0, 1), (1,1),
+        (-1, 1), (0, 1), (1, 1),
         (-1, 0),         (1, 0),
-        (-1, -1), (0, -1), (1, -1)
+        (-1,-1), (0,-1), (1,-1)
     ];
     
     for n in neighbors {
